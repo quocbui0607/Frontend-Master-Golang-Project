@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"quocbui0607/femProject/api"
+	"quocbui0607/femProject/middleware"
 	"quocbui0607/femProject/migrations"
 	"quocbui0607/femProject/stores"
 
@@ -15,9 +16,12 @@ import (
 )
 
 type Application struct {
-	Logger         *log.Logger
-	WorkoutHandler *api.WorkoutHandler
-	DB             *sql.DB
+	Logger            *log.Logger
+	MiddlewareHandler middleware.UserMiddleware
+	WorkoutHandler    *api.WorkoutHandler
+	UserHandler       *api.UserHandler
+	TokenHandler      *api.TokenHandler
+	DB                *sql.DB
 }
 
 func NewApplication() (*Application, error) {
@@ -40,11 +44,20 @@ func NewApplication() (*Application, error) {
 	logger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
 
 	wkStore := stores.NewPostgresWorkoutStore(pgDB)
-	workoutHandler := api.NewWorkoutHandler(wkStore)
+	userStore := stores.NewPostgresUserStore(pgDB)
+	tokenStore := stores.NewPostgresTokenStore(pgDB)
+	workoutHandler := api.NewWorkoutHandler(wkStore, logger)
+	userHandler := api.NewUserHandler(userStore, logger)
+	tokenHandler := api.NewTokenHandler(tokenStore, userStore, logger)
+	middlewareHandler := middleware.UserMiddleware{UserStore: userStore}
+
 	app := &Application{
-		Logger:         logger,
-		WorkoutHandler: workoutHandler,
-		DB:             pgDB,
+		Logger:            logger,
+		WorkoutHandler:    workoutHandler,
+		UserHandler:       userHandler,
+		TokenHandler:      tokenHandler,
+		MiddlewareHandler: middlewareHandler,
+		DB:                pgDB,
 	}
 
 	return app, nil
